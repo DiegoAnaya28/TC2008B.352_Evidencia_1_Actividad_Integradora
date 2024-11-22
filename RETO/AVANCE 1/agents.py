@@ -1,5 +1,45 @@
 import random
 import mesa
+import networkx as nx
+
+class StreetGraph:
+    def __init__(self, model):
+        self.graph = nx.Graph()
+        self.build_graph(model)
+    
+    def build_graph(self, model):
+        # Add street cells as nodes
+        for pos, direction in model.street_directions.items():
+            self.graph.add_node(pos)
+        
+        # Connect adjacent street cells with an edge
+        for pos in self.graph.nodes:
+            x, y = pos
+            possible_neighbors = [
+                (x+1, y), (x-1, y),  # horizontal
+                (x, y+1), (x, y-1)   # vertical
+            ]
+            for neighbor in possible_neighbors:
+                if neighbor in self.graph.nodes:
+                    self.graph.add_edge(pos, neighbor, weight=1)
+    
+    def find_shortest_path(self, start, parking_spots):
+        # Find the closest parking spot using Dijkstra's algorithm
+        min_path = None
+        min_distance = float('inf')
+        
+        for parking_spot in parking_spots:
+            try:
+                path = nx.shortest_path(self.graph, start, parking_spot, weight='weight')
+                distance = len(path) - 1  # Number of steps
+                
+                if distance < min_distance:
+                    min_distance = distance
+                    min_path = path
+            except nx.NetworkXNoPath:
+                continue
+        
+        return min_path, min_distance
 
 
 class NormalCarAgent(mesa.Agent):
@@ -72,6 +112,61 @@ class NormalCarAgent(mesa.Agent):
     def step(self):
         self.move()
 
+
+class DijkstraCarAgent(NormalCarAgent):
+    def __init__(self, unique_id, model, start_pos):
+        super().__init__(unique_id, model, start_pos)
+        self.path_to_parking = None
+    
+    def move(self):
+        if self.parked:
+            return
+        
+        # Find parking spots if no path exists
+        if not self.path_to_parking:
+            street_graph = StreetGraph(self.model)
+            
+            # Find available parking spots
+            parking_spots = [
+                agent.pos for agent in self.model.schedule.agents 
+                if isinstance(agent, ParkingAgent) and not agent.occupied
+            ]
+            
+            # Find shortest path to a parking spot
+            path, _ = street_graph.find_shortest_path(self.pos, parking_spots)
+            
+            if path:
+                self.path_to_parking = path[1:]  # Skip current position
+        
+        # Move along the path
+        if self.path_to_parking:
+            next_pos = self.path_to_parking.pop(0)
+            
+            # Standard movement checks
+            cell_contents = self.model.grid.get_cell_list_contents([next_pos])
+            is_obstructed = any(
+                isinstance(agent, (TrafficLightAgent, SidewalkAgent)) 
+                and (
+                    (isinstance(agent, TrafficLightAgent) and agent.state == "red") or
+                    (isinstance(agent, SidewalkAgent) and agent.state() == "red")
+                )
+                for agent in cell_contents
+            )
+            
+            if not is_obstructed:
+                # Check for parking at destination
+                for agent in cell_contents:
+                    if isinstance(agent, ParkingAgent) and not agent.occupied:
+                        self.park(agent)
+                        self.path_to_parking = None
+                        return
+                
+                # Move to next position
+                self.model.grid.move_agent(self, next_pos)
+                self.pos = next_pos
+        else:
+            # Fall back to default movement if no path found
+            super().move()
 
 class FastCarAgent(NormalCarAgent):
     def __init__(self, unique_id, model, start_pos):
