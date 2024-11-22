@@ -1,12 +1,9 @@
 import mesa
 from mesa.visualization.modules import CanvasGrid
 from mesa.visualization.ModularVisualization import ModularServer
-from agents import NormalCarAgent, ParkingAgent
+from agents import (NormalCarAgent, FastCarAgent, SlowCarAgent, DisobedientCarAgent, ObstructorCarAgent, ParkingAgent)
 from agents import TrafficLightAgent, SidewalkAgent
 from agents import BuildingAgent, RoundaboutAgent, StreetAgent
-
-
-
 
 # Modelo principal
 class TrafficModel(mesa.Model):
@@ -260,14 +257,58 @@ class TrafficModel(mesa.Model):
             agent_id += 1
 
         
+
         # Crear coches normales
         start_positions = [(0,23), (1,22), (2,8), (2,9), (11,11), (11,10), (5,4), (5,5), (8,4), (8,5), (11,18), (11,17), (6,7), (7,7), (6,12), (7,12), (21,11), (21,10), (16,9), (16,8), (21,16), (21,17), (12,21), (13,21), (14,12), (15,12), (15,2), (14,2), (12,7), (13,7)]  # Posiciones iniciales válidas
-        for pos in start_positions:
+        # Crear lista de posiciones disponibles
+        available_positions = start_positions.copy()
+
+        for pos in start_positions[:15]:
             car = NormalCarAgent(self.next_id(), self, pos)
             self.grid.place_agent(car,  pos)
             self.schedule.add(car)
+            available_positions.remove(pos)
 
-    
+        # Crear coches rápidos
+        num_fast_cars = 5
+        for _ in range(num_fast_cars):
+            if available_positions:
+                pos = self.random.choice(available_positions)
+                car = FastCarAgent(self.next_id(), self, pos)
+                self.grid.place_agent(car, pos)
+                self.schedule.add(car)
+                available_positions.remove(pos)
+
+        # Crear coches lentos
+        num_slow_cars = 5
+        for _ in range(num_slow_cars):
+            if available_positions:
+                pos = self.random.choice(available_positions)
+                car = SlowCarAgent(self.next_id(), self, pos)
+                self.grid.place_agent(car, pos)
+                self.schedule.add(car)
+                available_positions.remove(pos)
+
+        # Crear coches desobedientes
+        num_disobedient_cars = 3
+        for _ in range(num_disobedient_cars):
+            if available_positions:
+                pos = self.random.choice(available_positions)
+                car = DisobedientCarAgent(self.next_id(), self, pos)
+                self.grid.place_agent(car, pos)
+                self.schedule.add(car)
+                available_positions.remove(pos)
+
+        # Crear coches obstructores
+        num_obstructor_cars = 2
+        for _ in range(num_obstructor_cars):
+            if available_positions:
+                pos = self.random.choice(available_positions)
+                car = ObstructorCarAgent(self.next_id(), self, pos)
+                self.grid.place_agent(car, pos)
+                self.schedule.add(car)
+                available_positions.remove(pos)
+                    
     def step(self):
         self.schedule.step()
 
@@ -291,12 +332,26 @@ def agent_portrayal(agent):
     elif isinstance(agent, RoundaboutAgent):
         portrayal["Color"] = "#8B4513"  # Marrón
         portrayal["Layer"] = 1
-    elif isinstance(agent, NormalCarAgent):
-        portrayal["Color"] ="#0000FF"  # Azul oscuro
-        portrayal ["Layer"] = 3
     elif isinstance(agent, SidewalkAgent):
-        portrayal["Color"] = "#00FF00" if agent.state() == "green" else "#FF0000"  # Verde claro   Verde o rojo opuesto al trafficlightagent
+        portrayal["Color"] = "#00FF00" if agent.state() == "green" else "#FF0000"  # Verde o rojo opuesto al trafficlightagent
         portrayal["Layer"] = 1
+    # Primero verificar los tipos específicos de coches
+    elif isinstance(agent, FastCarAgent):
+        portrayal["Color"] = "#FFD700"  # Rojo
+        portrayal["Layer"] = 3
+    elif isinstance(agent, SlowCarAgent):
+        portrayal["Color"] = "#008000"  # Verde oscuro
+        portrayal["Layer"] = 3
+    elif isinstance(agent, DisobedientCarAgent):
+        portrayal["Color"] = "#800080"  # Púrpura
+        portrayal["Layer"] = 3
+    elif isinstance(agent, ObstructorCarAgent):
+        portrayal["Color"] = "#FFA500"  # Naranja
+        portrayal["Layer"] = 3
+    # NormalCarAgent debe ir al final
+    elif isinstance(agent, NormalCarAgent):
+        portrayal["Color"] = "#0000FF"  # Azul oscuro
+        portrayal["Layer"] = 3
         
     return portrayal
 
