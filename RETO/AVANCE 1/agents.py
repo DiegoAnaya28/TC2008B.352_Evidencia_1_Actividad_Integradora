@@ -1,3 +1,4 @@
+import random
 import mesa
 
 
@@ -72,6 +73,86 @@ class NormalCarAgent(mesa.Agent):
         self.move()
 
 
+class FastCarAgent(NormalCarAgent):
+    def __init__(self, unique_id, model, start_pos):
+        super().__init__(unique_id, model, start_pos)
+        self.speed = 2  # Se mueve 2 celdas por paso
+        
+    def move(self):
+        # Realiza el movimiento normal dos veces por paso
+        for _ in range(self.speed):
+            if not self.parked:
+                super().move()
+
+class SlowCarAgent(NormalCarAgent):
+    def __init__(self, unique_id, model, start_pos):
+        super().__init__(unique_id, model, start_pos)
+        self.speed = 0.5  # Se mueve cada dos pasos
+        self.step_counter = 0
+        
+    def step(self):
+        self.step_counter += 1
+        if self.step_counter >= 2:  # Solo se mueve cada dos pasos
+            self.move()
+            self.step_counter = 0
+
+class DisobedientCarAgent(NormalCarAgent):
+    def __init__(self, unique_id, model, start_pos):
+        super().__init__(unique_id, model, start_pos)
+        self.disobedient = True
+        
+    def move(self):
+        if self.parked:
+            return
+            
+        direction = self.model.street_directions.get(self.pos)
+        next_pos = None
+        
+        # Calcula la siguiente posición igual que NormalCarAgent
+        if direction == "right":
+            next_pos = (self.pos[0] + 1, self.pos[1])
+        elif direction == "left":
+            next_pos = (self.pos[0] - 1, self.pos[1])
+        elif direction == "up":
+            next_pos = (self.pos[0], self.pos[1] + 1)
+        elif direction == "down":
+            next_pos = (self.pos[0], self.pos[1] - 1)
+            
+        if next_pos and next_pos != self.pos and next_pos in self.model.street_directions:
+            # Ignora semáforos en rojo con 50% de probabilidad
+            cell_contents = self.model.grid.get_cell_list_contents([next_pos])
+            can_move = True
+            
+            for agent in cell_contents:
+                if isinstance(agent, TrafficLightAgent) and agent.state == "red":
+                    if random.random() > 0.5:  # 50% de probabilidad de ignorar el semáforo
+                        print(f"Coche desobediente {self.unique_id} ignora el semáforo en {next_pos}")
+                        continue
+                    else:
+                        can_move = False
+                        break
+                        
+            if can_move:
+                self.model.grid.move_agent(self, next_pos)
+                self.pos = next_pos
+
+class ObstructorCarAgent(NormalCarAgent):
+    def __init__(self, unique_id, model, start_pos):
+        super().__init__(unique_id, model, start_pos)
+        self.obstruct_counter = 0
+        self.obstruct_time = 5  # Tiempo que permanece obstruyendo
+        
+    def step(self):
+        if not self.parked:
+            if self.obstruct_counter < self.obstruct_time:
+                # Se queda quieto obstruyendo
+                self.obstruct_counter += 1
+                print(f"Coche obstructor {self.unique_id} bloqueando en {self.pos}")
+            else:
+                # Después de obstruir, se mueve normalmente
+                self.move()
+
+
 class ParkingAgent(mesa.Agent):
     def __init__(self, unique_id, model, number):
         super().__init__(unique_id, model)
@@ -113,6 +194,7 @@ class SidewalkAgent(mesa.Agent):
     
     def step(self):
         pass
+
 
 
 
