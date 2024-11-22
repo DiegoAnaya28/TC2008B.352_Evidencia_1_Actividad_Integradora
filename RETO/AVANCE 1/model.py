@@ -1,9 +1,13 @@
 import mesa
 from mesa.visualization.modules import CanvasGrid
 from mesa.visualization.ModularVisualization import ModularServer
-from agents import (NormalCarAgent, FastCarAgent, SlowCarAgent, DisobedientCarAgent, ObstructorCarAgent, ParkingAgent)
+from agents import (DijkstraCarAgent,FastCarAgent,SlowCarAgent,DisobedientCarAgent,ObstructorCarAgent, TrafficLightAgent, SidewalkAgent, 
+                   BuildingAgent, RoundaboutAgent, ParkingAgent)
 from agents import TrafficLightAgent, SidewalkAgent
 from agents import BuildingAgent, RoundaboutAgent, StreetAgent
+
+
+
 
 # Modelo principal
 class TrafficModel(mesa.Model):
@@ -264,8 +268,8 @@ class TrafficModel(mesa.Model):
         available_positions = start_positions.copy()
 
         for pos in start_positions[:15]:
-            car = NormalCarAgent(self.next_id(), self, pos)
-            self.grid.place_agent(car,  pos)
+            car = DijkstraCarAgent(self.next_id(), self, pos)
+            self.grid.place_agent(car, pos)
             self.schedule.add(car)
             available_positions.remove(pos)
 
@@ -349,7 +353,7 @@ def agent_portrayal(agent):
         portrayal["Color"] = "#FFA500"  # Naranja
         portrayal["Layer"] = 3
     # NormalCarAgent debe ir al final
-    elif isinstance(agent, NormalCarAgent):
+    elif isinstance(agent, DijkstraCarAgent):
         portrayal["Color"] = "#0000FF"  # Azul oscuro
         portrayal["Layer"] = 3
         
